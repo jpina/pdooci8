@@ -58,7 +58,7 @@ The MIT License (MIT). Please see [License File](LICENSE.md) for more informatio
 [ico-scrutinizer]: https://scrutinizer-ci.com/g/jpina/pdooci8/badges/quality-score.png?b=master
 [ico-codeclimate]: https://codeclimate.com/github/jpina/pdooci8/badges/gpa.svg
 [ico-sensiolabsinsight]: https://insight.sensiolabs.com/projects/02a48483-0e26-4310-b3ac-479226ec7f4f/small.png
-[ico-dependencies]: https://gemnasium.com/jpina/oci8.svg
+[ico-dependencies]: https://gemnasium.com/jpina/pdooci8.svg
 [ico-downloads]: https://img.shields.io/packagist/dt/jpina/pdooci8.svg?style=flat-square
 
 [link-packagist]: https://packagist.org/packages/jpina/pdooci8
