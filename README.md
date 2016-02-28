@@ -12,6 +12,8 @@
 [![SensioLabsInsight Score][ico-sensiolabsinsight]][link-sensiolabsinsight]
 
 PdoOci8 is a PHP PDO-like wrapper to connect and work on Oracle databases.
+Intended to be a replacement for the unmaintained [PDO_OCI](http://php.net/manual/en/ref.pdo-oci.php)
+extension.
 
 ## Install
 

@@ -1,7 +1,7 @@
 {
   "name": "jpina/pdooci8",
   "type": "library",
-  "description": "PDO like wrapper for Oracle databases",
+  "description": "PDO-like wrapper for Oracle databases",
   "keywords": ["pdo", "oci8", "oci", "oracle", "database"],
   "homepage": "https://github.com/jpina/pdooci8",
   "license": "MIT",
@@ -12,10 +12,12 @@
     }
   ],
   "require": {
-    "jpina/oci8" : "^1.0.0"
+    "php": ">=5.3.0",
+    "ext-pdo": "*",
+    "jpina/oci8": "^1.0.0"
   },
   "require-dev": {
-    "phpunit/phpunit" : "^4.8",
+    "phpunit/phpunit": "^4.8",
     "scrutinizer/ocular": "^1.1",
     "squizlabs/php_codesniffer": "^2.3"
   },
