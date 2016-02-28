@@ -1,0 +1,43 @@
+{
+  "name": "jpina/pdooci8",
+  "type": "library",
+  "description": "PDO like wrapper for Oracle databases",
+  "keywords": ["pdo", "oci8", "oci", "oracle", "database"],
+  "homepage": "https://github.com/jpina/pdooci8",
+  "license": "MIT",
+  "authors": [
+    {
+      "name": "Josué Piña",
+      "email": "jabdhel@gmail.com"
+    }
+  ],
+  "require": {
+    "jpina/oci8" : "^1.0.0"
+  },
+  "require-dev": {
+    "phpunit/phpunit" : "^4.8",
+    "scrutinizer/ocular": "^1.1",
+    "squizlabs/php_codesniffer": "^2.3"
+  },
+  "autoload": {
+    "psr-4": {
+      "Jpina\\PdoOci8\\": "src"
+    }
+  },
+  "autoload-dev": {
+    "psr-4": {
+      "Jpina\\PdoOci8\\Test\\": "tests"
+    }
+  },
+  "scripts": {
+    "cs": "vendor/bin/phpcs --standard=psr2 src/",
+    "test": "vendor/bin/phpunit",
+    "test-coverage": "vendor/bin/phpunit --coverage-clover build/logs/clover.xml",
+    "push-test-coverage": "vendor/bin/ocular code-coverage:upload --format=php-clover build/logs/clover.xml"
+  },
+  "extra": {
+    "branch-alias": {
+      "dev-master": "1.0-dev"
+    }
+  }
+}
