@@ -337,16 +337,16 @@ class PdoOci8StatementTest extends \PHPUnit_Framework_TestCase
 
     public function testGetColumnMetaString()
     {
-        $statement = $this->getNewStatement("SELECT 'X' DUMMY FROM SYS.DUAL");
+        $statement = $this->getNewStatement("SELECT 'X' DUMMY FROM SYS.DUAL WHERE DUMMY LIKE '%'");
         $metadata = $statement->getColumnMeta(0);
 
         $this->assertTrue(is_array($metadata));
 
         $this->assertArrayHasKey('native_type', $metadata);
-        $this->assertEquals(SQLT_CHR, $metadata['native_type']);
+        $this->assertEquals(SQLT_AFC, $metadata['native_type']);
 
         $this->assertArrayHasKey('driver:decl_type', $metadata);
-        $this->assertEquals('VARCHAR2', $metadata['driver:decl_type']);
+        $this->assertEquals('CHAR', $metadata['driver:decl_type']);
 
         $this->assertArrayHasKey('flags', $metadata);
         $this->assertTrue(is_array($metadata['flags']));
@@ -355,7 +355,7 @@ class PdoOci8StatementTest extends \PHPUnit_Framework_TestCase
         $this->assertEquals('DUMMY', $metadata['name']);
 
         $this->assertArrayHasKey('table', $metadata);
-        $this->assertEquals('DUAL', $metadata['table']);
+        $this->assertEquals('SYS.DUAL', $metadata['table']);
 
         $this->assertArrayHasKey('len', $metadata);
         $this->assertEquals(1, $metadata['len']);
@@ -372,14 +372,43 @@ class PdoOci8StatementTest extends \PHPUnit_Framework_TestCase
         $statement = $this->getNewStatement("SELECT DUMMY, CAST(9.9 AS FLOAT) AS D_FLOAT FROM SYS.DUAL");
         $metadata = $statement->getColumnMeta(1);
 
-        $this->assertTrue(is_array($metadata));
-        var_dump($metadata); die('asdasd');
-
         $this->assertArrayHasKey('native_type', $metadata);
-        $this->assertEquals(SQLT_CHR, $metadata['native_type']);
+        $this->assertEquals(SQLT_NUM, $metadata['native_type']);
 
         $this->assertArrayHasKey('driver:decl_type', $metadata);
-        $this->assertEquals('VARCHAR2', $metadata['driver:decl_type']);
+        $this->assertEquals('NUMBER', $metadata['driver:decl_type']);
+
+        $this->assertArrayHasKey('flags', $metadata);
+        $this->assertTrue(is_array($metadata['flags']));
+
+        $this->assertArrayHasKey('name', $metadata);
+        $this->assertEquals('D_FLOAT', $metadata['name']);
+
+        $this->assertArrayHasKey('table', $metadata);
+        $this->assertEquals('SYS.DUAL', $metadata['table']);
+
+        $this->assertArrayHasKey('len', $metadata);
+        $this->assertEquals(22, $metadata['len']);
+
+        $this->assertArrayHasKey('precision', $metadata);
+        $this->assertEquals(253, $metadata['precision']);
+
+        $this->assertArrayHasKey('pdo_type', $metadata);
+        $this->assertEquals(\PDO::PARAM_INT, $metadata['pdo_type']);
+    }
+
+    public function testGetColumnMetaNestedQuery()
+    {
+        $statement = $this->getNewStatement("SELECT 'X' DUMMY FROM (SELECT * FROM SYS.DUAL)");
+        $metadata = $statement->getColumnMeta(0);
+
+        $this->assertTrue(is_array($metadata));
+
+        $this->assertArrayHasKey('native_type', $metadata);
+        $this->assertEquals(SQLT_AFC, $metadata['native_type']);
+
+        $this->assertArrayHasKey('driver:decl_type', $metadata);
+        $this->assertEquals('CHAR', $metadata['driver:decl_type']);
 
         $this->assertArrayHasKey('flags', $metadata);
         $this->assertTrue(is_array($metadata['flags']));
@@ -388,7 +417,7 @@ class PdoOci8StatementTest extends \PHPUnit_Framework_TestCase
         $this->assertEquals('DUMMY', $metadata['name']);
 
         $this->assertArrayHasKey('table', $metadata);
-        $this->assertEquals('DUAL', $metadata['table']);
+        $this->assertEquals('', $metadata['table']);
 
         $this->assertArrayHasKey('len', $metadata);
         $this->assertEquals(1, $metadata['len']);
@@ -398,6 +427,14 @@ class PdoOci8StatementTest extends \PHPUnit_Framework_TestCase
 
         $this->assertArrayHasKey('pdo_type', $metadata);
         $this->assertEquals(\PDO::PARAM_STR, $metadata['pdo_type']);
+    }
+
+    public function testGetColumnMetaNestedNonSelectQuery()
+    {
+        $statement = $this->getNewStatement("INSERT (DUMMY) INTO SYS.DUAL VALUES ('X')");
+        $metadata = $statement->getColumnMeta(0);
+
+        $this->assertFalse($metadata);
     }
 }
 

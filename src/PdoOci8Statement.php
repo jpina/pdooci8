@@ -2,7 +2,6 @@
 
 namespace Jpina\PdoOci8;
 
-use Jpina\Oci8\Oci8Connection;
 use Jpina\Oci8\Oci8ConnectionInterface;
 use Jpina\Oci8\Oci8FieldInterface;
 use Jpina\Oci8\Oci8StatementInterface;
@@ -428,9 +427,14 @@ class PdoOci8Statement
      */
     public function getColumnMeta($column)
     {
+        $statementType = $this->statement->getType();
+        if ($statementType !== 'SELECT') {
+            return false;
+        }
+
         $table = $this->getTableName();
 
-        $sqlText = "SELECT * from {$table}";
+        $sqlText = $this->sqlText;
         $statement = $this->getConnection()->parse($sqlText);
         $statement->execute(OCI_DESCRIBE_ONLY);
         $field = $statement->getField($column + 1);
@@ -524,48 +528,23 @@ class PdoOci8Statement
     protected function getTableName()
     {
         $statementType = $this->statement->getType();
+        if ($statementType !== 'SELECT') {
+            return '';
+        }
+
         $sqlText = strtoupper($this->sqlText);
-        $sql = '';
-        switch ($statementType) {
-            case 'SELECT':
-                $idx = strpos($sqlText, ' FROM ');
-                $sql = substr($this->sqlText, $idx + 6);
-                break;
-            case 'INSERT':
-                $idx = strpos($sqlText, ' INTO ');
-                $sql = substr($this->sqlText, $idx + 6);
-                break;
-            case 'UPDATE':
-                $sql = substr($this->sqlText, 7);
-                break;
-            case 'DELETE':
-                $idx = strpos($sqlText, ' FROM ');
-                $sql = substr($this->sqlText, $idx + 6);
-                break;
+        $idx     = strpos($sqlText, ' FROM ');
+        $table   = substr($this->sqlText, $idx + 6);
+        $table   = trim($table);
+
+        if (strpos($table, '(') !== false) {
+            return '';
         }
 
-        $idxSpace = strpos($sql, ' ');
-        $idxParentheses = strpos($sql, '(');
-        $idxSemicolon = strpos($sql, ';');
-        if ($idxSpace !== false && $idxParentheses !== false) {
-            $idx = $idxSpace < $idxParentheses ? $idxSpace : $idxParentheses;
-            $table = substr($sql, 0, $idx);
-        } elseif ($idxSpace !== false) {
-            $table = substr($sql, 0, $idxSpace);
-        } elseif ($idxParentheses !== false) {
-            $table = substr($sql, 0, $idxParentheses);
-        } elseif ($idxSemicolon !== false) {
-            $table = substr($sql, 0, $idxSemicolon);
-        } else {
-            $table = substr($sql, 0);
+        $idxSpace = strpos($table, ' ');
+        if ($idxSpace !== false) {
+            $table = substr($table, 0, $idxSpace);
         }
-
-        $idxDot = strrpos($table, '.');
-        if ($idxDot !== false) {
-            $table = substr($table, $idxDot + 1);
-        }
-
-        $table = trim($table);
 
         return $table;
     }
@@ -625,6 +604,7 @@ class PdoOci8Statement
             case \PDO::PARAM_STR:
                 $dataType = SQLT_CHR;
                 break;
+            case \PDO::PARAM_INPUT_OUTPUT:
             case \PDO::PARAM_INPUT_OUTPUT | \PDO::PARAM_BOOL:
             case \PDO::PARAM_INPUT_OUTPUT | \PDO::PARAM_INT:
             case \PDO::PARAM_INPUT_OUTPUT | \PDO::PARAM_LOB:
