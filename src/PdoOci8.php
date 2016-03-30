@@ -6,13 +6,14 @@ use Jpina\Oci8\Oci8Connection;
 use Jpina\Oci8\Oci8ConnectionInterface;
 use Jpina\Oci8\Oci8Exception;
 use Jpina\Oci8\Oci8PersistentConnection;
+use Jpina\Oci8\Oci8StatementInterface;
 
 /**
  * Custom PDO_OCI implementation via OCI8 driver
  *
  * @see http://php.net/manual/en/class.pdo.php
  */
-class PdoOci8
+class PdoOci8 extends \PDO
 {
     const OCI_ATTR_SESSION_MODE = 8000;
 
@@ -70,6 +71,10 @@ class PdoOci8
         $connection = $this->getOracleConnection($dsn, $username, $password);
         $this->setAttribute(\PDO::ATTR_CLIENT_VERSION, $connection->getClientVersion());
         $this->setAttribute(\PDO::ATTR_SERVER_VERSION, $connection->getServerVersion());
+
+        if ($this->getAttribute(\PDO::ATTR_AUTOCOMMIT) === false) {
+            $this->beginTransaction();
+        }
 
         $this->connection = $connection;
     }
@@ -192,6 +197,10 @@ class PdoOci8
      */
     public function beginTransaction()
     {
+        if ($this->getAttribute(\PDO::ATTR_AUTOCOMMIT) === false) {
+            return false;
+        }
+
         return $this->setAttribute(\PDO::ATTR_AUTOCOMMIT, false);
     }
 
@@ -218,7 +227,8 @@ class PdoOci8
      */
     public function errorCode()
     {
-        $driverError = $this->getConnection()->getError();
+        $connection = $this->getConnection();
+        $driverError = $connection->getError();
         if (!$driverError) {
             return null;
         }
@@ -235,23 +245,22 @@ class PdoOci8
      */
     public function errorInfo()
     {
-        $driverError = $this->getConnection()->getError();
-        if ($driverError) {
-            $driverErrorMessage = $driverError['message'];
-            $driverErrorCode = $driverError['code'];
+        $error = $this->getConnection()->getError();
+        if (is_array($error)) {
+            $errorInfo = array(
+                OracleSqlStateCode::getSqlStateErrorCode((int)$error['code']),
+                $error['message'],
+                $error['code']
+            );
         } else {
-            $driverErrorMessage = null;
-            $driverErrorCode = null;
+            $errorInfo = array(
+                '00000',
+                null,
+                null
+            );
         }
 
-        $sqlStateErrorCode = OracleSqlStateCode::getSqlStateErrorCode((int)$driverErrorCode);
-        $error = array(
-            $sqlStateErrorCode,
-            $driverErrorCode,
-            $driverErrorMessage
-        );
-
-        return $error;
+        return $errorInfo;
     }
 
     /**
@@ -262,18 +271,29 @@ class PdoOci8
      */
     public function exec($statement)
     {
-        //TODO Implement
-        if (strpos($statement, 'SELECT') === 0) {
+        $statement = $this->prepare($statement, $this->options);
+        $type      = $this->getStatementType($statement);
+        if ($type === 'SELECT') {
             return false;
         }
+        $statement->execute();
 
-        // TODO If DELETE, UPDATE or DELETE, then return affected rows, otherwise FALSE
+        return $statement->rowCount();
+    }
 
-        return rand(0, 100);
+    /**
+     * @param $statement
+     * @return PdoOci8Statement
+     */
+    protected function getStatementType($statement)
+    {
+        $class = new \ReflectionClass($statement);
+        $property = $class->getProperty('statement');
+        $property->setAccessible(true);
+        /** @var Oci8StatementInterface $rawStatement */
+        $oci8Statement = $property->getValue($statement);
 
-//        $statement = $this->prepare($statement);
-//        $statement->execute()
-//        return $stmt->rowCount();
+        return $oci8Statement->getType();
     }
 
     /**
@@ -367,14 +387,27 @@ class PdoOci8
      */
     public function query($statement, $mode = \PDO::ATTR_DEFAULT_FETCH_MODE, $arg3 = null, $ctorargs = array())
     {
-        $statement = $this->prepare($statement);
-        $statement->execute();
-        // TODO consider $mode
-//        if ($mode) {
-//            $statement->setFetchMode($mode, $arg3, $ctorArgs);
-//        }
+        $result = false;
+        try {
+            $statement = $this->prepare($statement);
+            switch ($mode) {
+                case \PDO::FETCH_CLASS:
+                    $statement->setFetchMode($mode, $arg3, $ctorargs);
+                    break;
+                case \PDO::FETCH_INTO:
+                    $statement->setFetchMode($mode, $arg3);
+                    break;
+                case \PDO::FETCH_COLUMN:
+                default:
+                    $statement->setFetchMode($mode);
+            }
+            $statement->execute();
+            $result = $statement;
+        } catch (\PDOException $ex) {
+            //TODO Handle Exception
+        }
 
-        return $statement;
+        return $result;
     }
 
     /**
@@ -413,12 +446,20 @@ class PdoOci8
      */
     public function rollback()
     {
+        if (!$this->inTransaction()) {
+            throw new PdoOci8Exception('There is no active transaction');
+        }
+
         try {
             $isSuccess = $this->getConnection()->rollback();
         } catch (Oci8Exception $ex) {
             $isSuccess = false;
         }
 
+        // TODO Restore autocommit mode
+        // If the database was set to autocommit mode
+        // this function will restore autocommit mode after
+        // it has rolled back the transaction
         $this->setAttribute(\PDO::ATTR_AUTOCOMMIT, true);
 
         return $isSuccess;

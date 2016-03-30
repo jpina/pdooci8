@@ -5,13 +5,15 @@ namespace Jpina\PdoOci8;
 use Jpina\Oci8\Oci8ConnectionInterface;
 use Jpina\Oci8\Oci8FieldInterface;
 use Jpina\Oci8\Oci8StatementInterface;
+use Iterator;
+use Traversable;
 
 /**
  * Custom PDO_OCI implementation via OCI8 driver
  *
  * @see http://php.net/manual/en/class.pdostatement.php
  */
-class PdoOci8Statement
+class PdoOci8Statement implements \Iterator
 {
     /** @var  Oci8ConnectionInterface */
     private $connection;
@@ -28,8 +30,15 @@ class PdoOci8Statement
     /** @var array */
     private $options;
 
+    /** @var \ArrayIterator */
+    private $iterator;
+
     public function __construct(Oci8ConnectionInterface $connection, $sqlText, $options = array())
     {
+        if (!is_string($sqlText)) {
+            throw new PdoOci8Exception('$sqlText is not a string');
+        }
+
         $this->connection = $connection;
         $this->sqlText = $sqlText;
 
@@ -259,10 +268,17 @@ class PdoOci8Statement
                 $this->bindValue($parameterName, $value);
             }
 
-            // TODO Use attribute
-            $isCommitOnSuccess = false;
-            return $this->statement->execute($isCommitOnSuccess);
+            if ($this->getAttribute(\PDO::ATTR_AUTOCOMMIT)) {
+                $isCommitOnSuccess = OCI_NO_AUTO_COMMIT;
+            } else {
+                $isCommitOnSuccess = OCI_COMMIT_ON_SUCCESS;
+            }
+
+            $result = $this->statement->execute($isCommitOnSuccess);
+
+            return $result;
         } catch (\Exception $ex) {
+            //TODO Handle Exception
             new PdoOci8Exception($ex->getMessage(), $ex->getCode(), $ex);
         }
 
@@ -334,7 +350,8 @@ class PdoOci8Statement
                     break;
             }
             // TODO Combine other flags: eg. OCI_NULLS and OCI_LOBS
-
+            // TODO update $this->numRows on successfull fetch
+            // TODO update $this->isIteratorValid on NOT successfull fetch
             return $this->statement->fetchArray($mode);
         } catch (\Exception $ex) {
             new PdoOci8Exception($ex->getMessage(), $ex->getCode(), $ex);
@@ -353,7 +370,10 @@ class PdoOci8Statement
      */
     public function fetchAll($fetch_style = null, $fetch_argument = null, $ctor_args = array())
     {
-        // TODO Implement
+        // TODO Implement properly (use all other fetch modes)
+        $this->statement->fetchAll($rows, 0, -1, OCI_FETCHSTATEMENT_BY_ROW | OCI_ASSOC);
+
+        return $rows;
     }
 
     /**
@@ -476,7 +496,7 @@ class PdoOci8Statement
      */
     public function rowCount()
     {
-        return 0;
+        return $this->statement->getNumRows();
     }
 
 
@@ -623,5 +643,69 @@ class PdoOci8Statement
     protected function getConnection()
     {
         return $this->connection;
+    }
+
+    /**
+     * @return \Traversable
+     */
+    protected function getInternalIterator()
+    {
+        if ($this->iterator instanceof \Traversable) {
+            return $this->iterator;
+        }
+
+        $rows = $this->fetchAll();
+        if ($rows === false) {
+            //TODO Throw Exception?
+            $rows = array();
+        }
+
+        $this->iterator = new \ArrayIterator($rows);
+
+        return $this->iterator;
+    }
+
+    /**
+     * @return array
+     */
+    public function current()
+    {
+        $iterator = $this->getInternalIterator();
+
+        return $iterator->current();
+    }
+
+    public function next()
+    {
+        $iterator = $this->getInternalIterator();
+
+        $iterator->next();
+    }
+
+    /**
+     * @return int|null
+     */
+    public function key()
+    {
+        $iterator = $this->getInternalIterator();
+
+        return $iterator->key();
+    }
+
+    /**
+     * @return bool
+     */
+    public function valid()
+    {
+        $iterator = $this->getInternalIterator();
+
+        return $iterator->valid();
+    }
+
+    public function rewind()
+    {
+        $iterator = $this->getInternalIterator();
+
+        $iterator->rewind();
     }
 }

@@ -5,6 +5,9 @@ namespace Jpina\Test\PdoOci8;
 use Jpina\PdoOci8\PdoOci8;
 use Jpina\PdoOci8\PdoOci8Statement;
 
+/**
+ * @group Statement
+ */
 class PdoOci8StatementTest extends \PHPUnit_Framework_TestCase
 {
     /**

@@ -3,7 +3,11 @@
 namespace Jpina\Test\PdoOci8;
 
 use Jpina\PdoOci8\PdoOci8;
+use Jpina\PdoOci8\PdoOci8Exception;
 
+/**
+ * @group Connection
+ */
 class PdoOci8Test extends \PHPUnit_Framework_TestCase
 {
     /** @var PdoOci8 */
@@ -13,7 +17,46 @@ class PdoOci8Test extends \PHPUnit_Framework_TestCase
     {
         parent::setUpBeforeClass();
 
-        static::$connection = static::getNewPdoConnection();
+        $db = static::getNewPdoConnection();
+        static::$connection = $db;
+
+        $options = array(
+            \PDO::ATTR_AUTOCOMMIT => true,
+        );
+
+        try {
+            $sql = 'CREATE TABLE PDOOCI8.pdooci8 (dummy VARCHAR2(255))';
+            $statement = $db->prepare($sql, $options);
+            $statement->execute();
+        } catch (\PDOException $ex) {
+            throw $ex;
+        }
+
+        try {
+            $sql = 'TRUNCATE TABLE PDOOCI8.pdooci8';
+            $statement = $db->prepare($sql, $options);
+            $statement->execute();
+
+            $sql = "INSERT INTO PDOOCI8.pdooci8 (DUMMY) VALUES ('A')";
+            $statement = $db->prepare($sql, $options);
+            $a = $statement->execute();
+
+            $sql = "INSERT INTO PDOOCI8.pdooci8 (DUMMY) VALUES ('B')";
+            $statement = $db->prepare($sql, $options);
+            $statement->execute();
+        } catch (\PDOException $ex) {
+            throw $ex;
+        }
+    }
+
+    public static function tearDownAfterClass()
+    {
+        parent::tearDownAfterClass();
+
+        $db = static::$connection;
+        $sql = 'DROP TABLE PDOOCI8.pdooci8';
+        $statement = $db->prepare($sql);
+        $statement->execute();
     }
 
     protected static function getConnectionString($port = null, $charset = null)
@@ -34,13 +77,13 @@ class PdoOci8Test extends \PHPUnit_Framework_TestCase
     /**
      * @return \Jpina\PdoOci8\PdoOci8
      */
-    public static function getNewPdoConnection()
+    public static function getNewPdoConnection($options = array())
     {
         $dsn = static::getConnectionString((int)getenv('DB_PORT'), getenv('DB_CHARSET'));
         $username = getenv('DB_USER');
         $password = getenv('DB_PASSWORD');
 
-        return new PdoOci8($dsn, $username, $password);
+        return new PdoOci8($dsn, $username, $password, $options);
     }
 
     /**
@@ -54,25 +97,29 @@ class PdoOci8Test extends \PHPUnit_Framework_TestCase
     /**
      * @return \Jpina\PdoOci8\PdoOci8
      */
-    protected function getNewConnection()
+    protected function getNewConnection($options = array())
     {
-        return static::getNewPdoConnection();
+        return static::getNewPdoConnection($options);
     }
 
     /**
+     * @test
      * @expectedException \Jpina\PdoOci8\PdoOci8Exception
      * @expectedExceptionMessage oci_new_connect(): ORA-12541: TNS:no listener
      * @expectedExceptionCode 12541
      */
-    public function testCannotConnect()
+    public function connecttionError()
     {
-        $dsn = 'oci:database=//localhost:1521/XE';
+        $dsn = 'oci:database=//localhost:1234/XE';
         $username = 'NO_USER';
         $password = 'NO_PASSWORD';
         new PdoOci8($dsn, $username, $password);
     }
 
-    public function testCanConnectWithPort()
+    /**
+     * @test
+     */
+    public function connectWithPort()
     {
         $dsn = static::getConnectionString((int)getenv('DB_PORT'));
         $username = getenv('DB_USER');
@@ -82,7 +129,10 @@ class PdoOci8Test extends \PHPUnit_Framework_TestCase
         $this->assertInstanceOf('Jpina\PdoOci8\PdoOci8', $db);
     }
 
-    public function testCanConnectWithPortAndCharset()
+    /**
+     * @test
+     */
+    public function connectWithPortAndCharset()
     {
         $dsn = static::getConnectionString((int)getenv('DB_PORT'), getenv('DB_CHARSET'));
         $username = getenv('DB_USER');
@@ -93,34 +143,87 @@ class PdoOci8Test extends \PHPUnit_Framework_TestCase
     }
 
     /**
+     * @test
      * @expectedException \Jpina\PdoOci8\PdoOci8Exception
      * @expectedExceptionMessage Invalid DSN
      */
-    public function testBadDsn()
+    public function connectWithBadDsn()
     {
         $dsn = 'this is a bad DSN';
         new PdoOci8($dsn);
     }
 
-    public function testCanBeginTransaction()
+    /**
+     * @test
+     */
+    public function persistentConnection()
     {
-        $dsn = static::getConnectionString((int)getenv('DB_PORT'), getenv('DB_CHARSET'));
-        $username = getenv('DB_USER');
-        $password = getenv('DB_PASSWORD');
-        $db = new PdoOci8($dsn, $username, $password);
+        $resource1 = $this->getPersistentConnection();
+        $resource2 = $this->getPersistentConnection();
+
+        $this->assertEquals('oci8 persistent connection', get_resource_type($resource1));
+        $this->assertEquals('oci8 persistent connection', get_resource_type($resource2));
+
+        $this->assertSame($resource1, $resource2);
+    }
+
+    /**
+     * @return resource
+     */
+    public function getPersistentConnection()
+    {
+        $options = array(
+            \PDO::ATTR_PERSISTENT => true,
+        );
+
+        $connection = $this->getNewConnection($options);
+        $class = new \ReflectionClass($connection);
+        $property = $class->getProperty('connection');
+        $property->setAccessible(true);
+        $oci8Connection = $property->getValue($connection);
+        $class = new \ReflectionClass($oci8Connection);
+        $property = $class->getProperty('resource');
+        $property->setAccessible(true);
+        $resource = $property->getValue($oci8Connection);
+
+        return $resource;
+    }
+
+    /**
+     * @test
+     */
+    public function beginTransaction()
+    {
+        $db = $this->getNewPdoConnection();
         $isSuccess = $db->beginTransaction();
         $isAutoCommitEnabled = $db->getAttribute(\PDO::ATTR_AUTOCOMMIT);
-
         $this->assertTrue($isSuccess);
         $this->assertFalse($isAutoCommitEnabled);
     }
 
-    public function testCanCommit()
+    /**
+     * @test
+     */
+    public function cannotStartMoreThanOneTransaction()
     {
-        $dsn = static::getConnectionString((int)getenv('DB_PORT'), getenv('DB_CHARSET'));
-        $username = getenv('DB_USER');
-        $password = getenv('DB_PASSWORD');
-        $db = new PdoOci8($dsn, $username, $password);
+        $db = $this->getNewPdoConnection();
+        $isSuccess = $db->beginTransaction();
+        $isAutoCommitEnabled = $db->getAttribute(\PDO::ATTR_AUTOCOMMIT);
+        $this->assertTrue($isSuccess);
+        $this->assertFalse($isAutoCommitEnabled);
+
+        $isSuccess = $db->beginTransaction();
+        $isAutoCommitEnabled = $db->getAttribute(\PDO::ATTR_AUTOCOMMIT);
+        $this->assertFalse($isSuccess);
+        $this->assertFalse($isAutoCommitEnabled);
+    }
+
+    /**
+     * @test
+     */
+    public function commit()
+    {
+        $db = $this->getNewConnection();
         $isSuccess = $db->commit();
         $isAutoCommitEnabled = $db->getAttribute(\PDO::ATTR_AUTOCOMMIT);
 
@@ -128,31 +231,21 @@ class PdoOci8Test extends \PHPUnit_Framework_TestCase
         $this->assertTrue($isAutoCommitEnabled);
     }
 
-    public function testErrorCodeIsEmpty()
+    /**
+     * @test
+     */
+    public function errorCodeIsEmpty()
     {
-        $dsn = static::getConnectionString((int)getenv('DB_PORT'), getenv('DB_CHARSET'));
-        $username = getenv('DB_USER');
-        $password = getenv('DB_PASSWORD');
-        $db = new PdoOci8($dsn, $username, $password);
+        $db = $this->getNewConnection();
         $code = $db->errorCode();
 
         $this->assertNull($code);
     }
 
-    public function testErrorCodeIsNotEmpty()
-    {
-        $this->markTestIncomplete();
-        $dsn = static::getConnectionString((int)getenv('DB_PORT'), getenv('DB_CHARSET'));
-        $username = getenv('DB_USER');
-        $password = getenv('DB_PASSWORD');
-        $db = new PdoOci8($dsn, $username, $password);
-
-        // TODO Create a broken statement and execute it to trigger an error
-
-        $this->assertNull($code);
-    }
-
-    public function testErrorInfo()
+    /**
+     * @test
+     */
+    public function errorInfoNoError()
     {
         $db = $this->getNewConnection();
         $error = $db->errorInfo();
@@ -162,57 +255,87 @@ class PdoOci8Test extends \PHPUnit_Framework_TestCase
         $this->assertNull($error[2]);
     }
 
-    public function testErrorInfoOnError()
+    /**
+     * @test
+     */
+    public function errorInfo()
     {
         $this->markTestIncomplete();
         $db = $this->getConnection();
-
-        // TODO Create a broken statement and execute it to trigger an error
-
+        $db->query('bogus sql');
         $error = $db->errorInfo();
 
-        $this->assertEquals('00000', $error[0]);
-        $this->assertNull($error[1]);
-        $this->assertNull($error[2]);
+        $this->assertEquals('42000', $error[0]);
+        $this->assertEquals(900, $error[1]);
+        $this->assertEquals('ORA-00900: invalid SQL statement', $error[2]);
     }
 
-    public function testCanExecuteSelectStmt()
+    /**
+     * @test
+     */
+    public function getAffectedRowsFromSelect()
     {
         $db = $this->getConnection();
-        $query = 'SELECT * FROM DUAL';
-        $rowsAffected = $db->exec($query);
+        $rowsAffected = $db->exec('SELECT * FROM DUAL');
 
         $this->assertFalse($rowsAffected);
     }
 
-    public function testCanExecuteInsertStmt()
+    /**
+     * @test
+     */
+    public function getAffectedRowsFromInsert()
     {
         $db = $this->getConnection();
-        $query = 'INSERT INTO test_123 (dummy) VALUES (1)';
-        $rowsAffected = $db->exec($query);
+        $rowsAffected = $db->exec("INSERT INTO PDOOCI8.pdooci8 (DUMMY) VALUES ('C')");
 
-        $this->assertTrue(is_int($rowsAffected));
-        $this->assertGreaterThanOrEqual(0, $rowsAffected);
+        $this->assertEquals(1, $rowsAffected);
     }
 
-    public function testCanExecuteUpdateStmt()
+    /**
+     * @test
+     */
+    public function getAffectedRowsFromUpdate()
     {
         $db = $this->getConnection();
-        $query = 'Update test_123 SET dummy = 2 WHERE dummy = 1';
-        $rowsAffected = $db->exec($query);
+        $rowsAffected = $db->exec("UPDATE PDOOCI8.pdooci8 SET DUMMY = 'Z' WHERE DUMMY = 'A'");
 
-        $this->assertTrue(is_int($rowsAffected));
-        $this->assertGreaterThanOrEqual(0, $rowsAffected);
+        $this->assertEquals(1, $rowsAffected);
     }
 
-    public function testCanExecuteDeleteStmt()
+    /**
+     * @test
+     */
+    public function getAffectedRowsFromDelete()
     {
         $db = $this->getConnection();
-        $query = 'DELETE FROM test_123 WHERE dummy = 2';
-        $rowsAffected = $db->exec($query);
+        $rowsAffected = $db->exec("DELETE FROM PDOOCI8.pdooci8 WHERE DUMMY = 'B'");
 
-        $this->assertTrue(is_int($rowsAffected));
-        $this->assertGreaterThanOrEqual(0, $rowsAffected);
+        $this->assertEquals(1, $rowsAffected);
+    }
+
+    /**
+     * @test
+     */
+    public function getAffectedRowsFromSelectStoredProcedure()
+    {
+        $this->markTestIncomplete();
+        $db = $this->getConnection();
+        $rowsAffected = $db->exec("DELETE FROM PDOOCI8.pdooci8 WHERE DUMMY = 'B'");
+
+        $this->assertEquals(1, $rowsAffected);
+    }
+
+    /**
+     * @test
+     */
+    public function getAffectedRowsFromInsertStoredProcedure()
+    {
+        $this->markTestIncomplete();
+        $db = $this->getConnection();
+        $rowsAffected = $db->exec("DELETE FROM PDOOCI8.pdooci8 WHERE DUMMY = 'B'");
+
+        $this->assertEquals(1, $rowsAffected);
     }
 
     public function canGetAttributes()
@@ -273,37 +396,125 @@ class PdoOci8Test extends \PHPUnit_Framework_TestCase
 
     public function testInTransaction()
     {
-        $db = $this->getConnection();
+        $options = array(
+            \PDO::ATTR_AUTOCOMMIT => true,
+        );
+        $db = $this->getNewConnection($options);
         $isInTransaction = $db->inTransaction();
         $this->assertFalse($isInTransaction);
+
+        $db->beginTransaction();
+        $isInTransaction = $db->inTransaction();
+        $this->assertTrue($isInTransaction);
     }
 
-    public function testGetLastInsertId()
+    /**
+     * @test
+     */
+    public function getLastInsertId()
     {
         $this->markTestIncomplete();
     }
 
-    public function testPrepare()
+    /**
+     * @test
+     */
+    public function prepareStatement()
     {
         $db = $this->getConnection();
         $statement = $db->prepare('SELECT * FROM DUAL');
 
         $this->assertInstanceOf('Jpina\PdoOci8\PdoOci8Statement', $statement);
+        $this->assertInstanceOf('\Traversable', $statement);
     }
 
-    public function testQuery()
+    /**
+     * @test
+     */
+    public function testQueryFetchDefault()
+    {
+        $db = $this->getConnection();
+        $statement = $db->query('SELECT DUMMY FROM PDOOCI8.pdooci8');
+
+        $this->assertInstanceOf('Jpina\PdoOci8\PdoOci8Statement', $statement);
+    }
+
+    /**
+     * @test
+     */
+    public function testQueryFetchDefaultAndTraverseWithIterator()
+    {
+        $db = $this->getConnection();
+        $statement = $db->query('SELECT DUMMY FROM PDOOCI8.pdooci8');
+        $this->assertInstanceOf('\Traversable', $statement);
+
+        while ($statement->valid()) {
+            $row = $statement->current();
+            $this->assertArrayHasKey('DUMMY', $row);
+            $statement->next();
+        }
+
+    }
+
+    /**
+     * @test
+     */
+    public function QueryFetchDefaultAndTraverseInForeach()
+    {
+        $db = $this->getConnection();
+        $statement = $db->query('SELECT DUMMY FROM PDOOCI8.pdooci8');
+        $this->assertInstanceOf('\Traversable', $statement);
+
+        foreach ($statement as $row) {
+            $this->assertArrayHasKey('DUMMY', $row);
+        }
+
+    }
+
+    /**
+     * @test
+     */
+    public function testQueryFetchColumn()
     {
         $this->markTestIncomplete();
+        $db = $this->getConnection();
+        $statement = $db->query('SELECT * FROM PDOOCI8.pdooci8');
     }
 
-    public function testQuoteObject()
+    /**
+     * @test
+     */
+    public function testQueryFetchClass()
+    {
+        $this->markTestIncomplete();
+        $db = $this->getConnection();
+        $statement = $db->query('SELECT * FROM PDOOCI8.pdooci8');
+    }
+
+    /**
+     * @test
+     */
+    public function testQueryFetchInto()
+    {
+        $this->markTestIncomplete();
+        $db = $this->getConnection();
+        $statement = $db->query('SELECT * FROM PDOOCI8.pdooci8');
+    }
+
+    /**
+     * @test
+     */
+    public function quoteObject()
     {
         $db = $this->getConnection();
         $quotedString = $db->quote(new \stdClass());
         $this->assertFalse($quotedString);
     }
 
-    public function testQuoteInteger()
+    /**
+     * @test
+     */
+    public function quoteInteger()
     {
         $db = $this->getConnection();
 
@@ -314,7 +525,10 @@ class PdoOci8Test extends \PHPUnit_Framework_TestCase
         $this->assertEquals("'5'", $quotedString);
     }
 
-    public function testQuoteString()
+    /**
+     * @test
+     */
+    public function quoteString()
     {
         $db = $this->getConnection();
 
@@ -322,7 +536,10 @@ class PdoOci8Test extends \PHPUnit_Framework_TestCase
         $this->assertEquals("'My string value'", $quotedString);
     }
 
-    public function testQuoteNaughtyString()
+    /**
+     * @test
+     */
+    public function quoteNaughtyString()
     {
         $db = $this->getConnection();
 
@@ -330,7 +547,10 @@ class PdoOci8Test extends \PHPUnit_Framework_TestCase
         $this->assertEquals("'Naughty '' string'", $quotedString);
     }
 
-    public function testQuoteComplexString()
+    /**
+     * @test
+     */
+    public function quoteComplexString()
     {
         $db = $this->getConnection();
 
@@ -338,16 +558,49 @@ class PdoOci8Test extends \PHPUnit_Framework_TestCase
         $this->assertEquals("'Co''mpl''''ex \"st''\"ring'", $quotedString);
     }
 
-    public function testCanRollback()
+    /**
+     * @test
+     * @expectedException \Jpina\PdoOci8\PdoOci8Exception
+     * @expectedExceptionMessage There is no active transaction
+     */
+    public function cannotRollback()
     {
-        $dsn = static::getConnectionString((int)getenv('DB_PORT'), getenv('DB_CHARSET'));
-        $username = getenv('DB_USER');
-        $password = getenv('DB_PASSWORD');
-        $db = new PdoOci8($dsn, $username, $password);
+        $db = $this->getNewConnection();
+        $isSuccess = $db->rollback();
+    }
+
+    /**
+     * @test
+     */
+    public function rollback()
+    {
+        $options = array(
+            \PDO::ATTR_AUTOCOMMIT => true,
+        );
+        $db = $this->getNewConnection($options);
+        $db->beginTransaction();
         $isSuccess = $db->rollback();
         $isAutoCommitEnabled = $db->getAttribute(\PDO::ATTR_AUTOCOMMIT);
 
         $this->assertTrue($isSuccess);
         $this->assertTrue($isAutoCommitEnabled);
+    }
+
+    /**
+     * @test
+     */
+    public function rollbackNoAutoCommit()
+    {
+        $this->markTestIncomplete();
+        $options = array(
+            \PDO::ATTR_AUTOCOMMIT => false,
+        );
+        $db = $this->getNewConnection($options);
+        $db->beginTransaction();
+        $isSuccess = $db->rollback();
+        $isAutoCommitEnabled = $db->getAttribute(\PDO::ATTR_AUTOCOMMIT);
+
+        $this->assertTrue($isSuccess);
+        $this->assertFalse($isAutoCommitEnabled);
     }
 }
