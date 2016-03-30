@@ -34,6 +34,10 @@ before_install:
   - docker exec -i $DOCKER_ORACLE bash -c 'echo "ALTER PROFILE DEFAULT LIMIT PASSWORD_GRACE_TIME UNLIMITED;" | /u01/app/oracle/product/11.2.0/xe/bin/sqlplus system/oracle@localhost:1521'
   - docker exec -i $DOCKER_ORACLE bash -c 'echo "ALTER USER system IDENTIFIED BY temp_password;" | /u01/app/oracle/product/11.2.0/xe/bin/sqlplus system/oracle@localhost:1521'
   - docker exec -i $DOCKER_ORACLE bash -c 'echo "ALTER USER system IDENTIFIED BY oracle;" | /u01/app/oracle/product/11.2.0/xe/bin/sqlplus system/temp_password@localhost:1521'
+  - docker exec -i $DOCKER_ORACLE bash -c 'echo "CREATE USER PDOOCI8 IDENTIFIED BY PDOOCI8;" | /u01/app/oracle/product/11.2.0/xe/bin/sqlplus system/oracle@localhost:1521'
+  - docker exec -i $DOCKER_ORACLE bash -c 'echo "GRANT CONNECT,RESOURCE,DBA TO PDOOCI8;" | /u01/app/oracle/product/11.2.0/xe/bin/sqlplus system/oracle@localhost:1521'
+  - docker exec -i $DOCKER_ORACLE bash -c 'echo "GRANT CREATE SESSION TO PDOOCI8 WITH ADMIN OPTION;" | /u01/app/oracle/product/11.2.0/xe/bin/sqlplus system/oracle@localhost:1521'
+  - docker exec -i $DOCKER_ORACLE bash -c 'echo "GRANT UNLIMITED TABLESPACE TO PDOOCI8;" | /u01/app/oracle/product/11.2.0/xe/bin/sqlplus system/oracle@localhost:1521'
 
 install:
   - travis_retry composer self-update
