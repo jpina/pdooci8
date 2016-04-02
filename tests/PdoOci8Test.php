@@ -196,9 +196,7 @@ class PdoOci8Test extends \PHPUnit_Framework_TestCase
     {
         $db = $this->getNewPdoConnection();
         $isSuccess = $db->beginTransaction();
-        $isAutoCommitEnabled = $db->getAttribute(\PDO::ATTR_AUTOCOMMIT);
         $this->assertTrue($isSuccess);
-        $this->assertFalse($isAutoCommitEnabled);
     }
 
     /**
@@ -208,14 +206,9 @@ class PdoOci8Test extends \PHPUnit_Framework_TestCase
     {
         $db = $this->getNewPdoConnection();
         $isSuccess = $db->beginTransaction();
-        $isAutoCommitEnabled = $db->getAttribute(\PDO::ATTR_AUTOCOMMIT);
         $this->assertTrue($isSuccess);
-        $this->assertFalse($isAutoCommitEnabled);
-
         $isSuccess = $db->beginTransaction();
-        $isAutoCommitEnabled = $db->getAttribute(\PDO::ATTR_AUTOCOMMIT);
         $this->assertFalse($isSuccess);
-        $this->assertFalse($isAutoCommitEnabled);
     }
 
     /**

@@ -29,6 +29,9 @@ class PdoOci8 extends \PDO
      */
     private $autoCommitMode = false;
 
+    /** @var bool */
+    private $isTransactionStarted = false;
+
     /**
      * @var array
      */
@@ -79,6 +82,10 @@ class PdoOci8 extends \PDO
         $this->connection = $connection;
     }
 
+    /**
+     * @param string $dsn
+     * @return string
+     */
     protected function getCharset($dsn)
     {
         $connectionStringItems = $this->getConnectionStringItems($dsn);
@@ -132,6 +139,10 @@ class PdoOci8 extends \PDO
         return $connection;
     }
 
+    /**
+     * @param string $dsn
+     * @return string
+     */
     protected function getConnectionString($dsn)
     {
         $connectionStringItems = $this->getConnectionStringItems($dsn);
@@ -143,6 +154,10 @@ class PdoOci8 extends \PDO
         return $connectionString;
     }
 
+    /**
+     * @param string $dsn
+     * @return array
+     */
     protected function getConnectionStringItems($dsn)
     {
         $dsnRegex = $this->getDsnRegex();
@@ -178,6 +193,9 @@ class PdoOci8 extends \PDO
         );
     }
 
+    /**
+     * @return string
+     */
     protected function getDsnRegex()
     {
         $hostnameRegrex = "(([a-z]|[a-z][a-z0-9\-_]*[a-z0-9])\.)*([a-z]|[a-z][a-z0-9\-_]*[a-z0-9])";
@@ -197,11 +215,13 @@ class PdoOci8 extends \PDO
      */
     public function beginTransaction()
     {
-        if ($this->getAttribute(\PDO::ATTR_AUTOCOMMIT) === false) {
+        if ($this->inTransaction()) {
             return false;
         }
 
-        return $this->setAttribute(\PDO::ATTR_AUTOCOMMIT, false);
+        $this->isTransactionStarted = true;
+
+        return true;
     }
 
     /**
@@ -282,8 +302,8 @@ class PdoOci8 extends \PDO
     }
 
     /**
-     * @param $statement
-     * @return PdoOci8Statement
+     * @param PdoOci8Statement $statement
+     * @return string
      */
     protected function getStatementType($statement)
     {
@@ -292,8 +312,9 @@ class PdoOci8 extends \PDO
         $property->setAccessible(true);
         /** @var Oci8StatementInterface $rawStatement */
         $oci8Statement = $property->getValue($statement);
+        $type = $oci8Statement->getType();
 
-        return $oci8Statement->getType();
+        return $type;
     }
 
     /**
@@ -326,8 +347,7 @@ class PdoOci8 extends \PDO
      */
     public function inTransaction()
     {
-        $inTransaction = !$this->getAttribute(\PDO::ATTR_AUTOCOMMIT);
-        return $inTransaction;
+        return $this->isTransactionStarted;
     }
 
     /**
