@@ -220,6 +220,17 @@ class PdoOci8 extends \PDO
     }
 
     /**
+     * @param array $overrideOptions
+     * @return array
+     */
+    protected function getOptions($overrideOptions = array())
+    {
+        $options = array_merge($this->options, $overrideOptions);
+
+        return $options;
+    }
+
+    /**
      * @link http://php.net/manual/en/pdo.begintransaction.php
      * @return bool
      */
@@ -302,7 +313,7 @@ class PdoOci8 extends \PDO
      */
     public function exec($statement)
     {
-        $statement = $this->prepare($statement, $this->options);
+        $statement = $this->prepare($statement);
         $type      = $this->getStatementType($statement);
         if ($type === 'SELECT') {
             return false;
@@ -387,7 +398,8 @@ class PdoOci8 extends \PDO
         // TODO Use $driver_options, eg. configure a cursor
         $exception = null;
         try {
-            return new PdoOci8Statement($this->getConnection(), $statement, $driver_options);
+            $options = $this->getOptions($driver_options);
+            return new PdoOci8Statement($this->getConnection(), $statement, $options);
         } catch (\Exception $ex) {
             $exception = new PdoOci8Exception($ex->getMessage(), $ex->getCode(), $ex);
         }
