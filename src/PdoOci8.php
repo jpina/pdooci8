@@ -25,7 +25,7 @@ class PdoOci8 extends \PDO
     protected $connection;
 
     /**
-     * @var int
+     * @var bool
      */
     private $autoCommitMode = false;
 
@@ -75,11 +75,21 @@ class PdoOci8 extends \PDO
         $this->setAttribute(\PDO::ATTR_CLIENT_VERSION, $connection->getClientVersion());
         $this->setAttribute(\PDO::ATTR_SERVER_VERSION, $connection->getServerVersion());
 
+        $autocommitMode = $this->getAttribute(\PDO::ATTR_AUTOCOMMIT);
+        $this->setAutocommitMode($autocommitMode);
         if ($this->getAttribute(\PDO::ATTR_AUTOCOMMIT) === false) {
             $this->beginTransaction();
         }
 
         $this->connection = $connection;
+    }
+
+    /**
+     * @return bool
+     */
+    protected function getAutocommitMode()
+    {
+        return $this->autoCommitMode;
     }
 
     /**
@@ -219,6 +229,7 @@ class PdoOci8 extends \PDO
             return false;
         }
 
+        $this->setAttribute(\PDO::ATTR_AUTOCOMMIT, false);
         $this->isTransactionStarted = true;
 
         return true;
@@ -236,7 +247,7 @@ class PdoOci8 extends \PDO
             $isSuccess = false;
         }
 
-        $this->setAttribute(\PDO::ATTR_AUTOCOMMIT, true);
+        $this->restoreAutocommitMode();
 
         return $isSuccess;
     }
@@ -460,6 +471,12 @@ class PdoOci8 extends \PDO
         return $quotedString;
     }
 
+    protected function restoreAutocommitMode()
+    {
+        $autocommitMode = $this->getAutocommitMode();
+        $this->setAttribute(\PDO::ATTR_AUTOCOMMIT, $autocommitMode);
+    }
+
     /**
      * @link http://php.net/manual/en/pdo.rollback.php
      * @return bool
@@ -476,13 +493,17 @@ class PdoOci8 extends \PDO
             $isSuccess = false;
         }
 
-        // TODO Restore autocommit mode
-        // If the database was set to autocommit mode
-        // this function will restore autocommit mode after
-        // it has rolled back the transaction
-        $this->setAttribute(\PDO::ATTR_AUTOCOMMIT, true);
+        $this->restoreAutocommitMode();
 
         return $isSuccess;
+    }
+
+    /**
+     * @param bool $onOff
+     */
+    protected function setAutocommitMode($onOff)
+    {
+        $this->autoCommitMode = $onOff;
     }
 
     /**

@@ -584,7 +584,6 @@ class PdoOci8Test extends \PHPUnit_Framework_TestCase
      */
     public function rollbackNoAutoCommit()
     {
-        $this->markTestIncomplete();
         $options = array(
             \PDO::ATTR_AUTOCOMMIT => false,
         );
