@@ -5,15 +5,13 @@ namespace Jpina\PdoOci8;
 use Jpina\Oci8\Oci8ConnectionInterface;
 use Jpina\Oci8\Oci8FieldInterface;
 use Jpina\Oci8\Oci8StatementInterface;
-use Iterator;
-use Traversable;
 
 /**
  * Custom PDO_OCI implementation via OCI8 driver
  *
  * @see http://php.net/manual/en/class.pdostatement.php
  */
-class PdoOci8Statement implements \Iterator
+class PdoOci8Statement extends \PDOStatement
 {
     /** @var  Oci8ConnectionInterface */
     private $connection;
@@ -39,8 +37,10 @@ class PdoOci8Statement implements \Iterator
             throw new PdoOci8Exception('$sqlText is not a string');
         }
 
-        $this->connection = $connection;
-        $this->sqlText = $sqlText;
+        $this->connection  = $connection;
+        $this->sqlText     = $sqlText;
+        //TODO assign value to queryString
+        //$this->queryString = $sqlText;
 
         $this->options = array(
             \PDO::ATTR_AUTOCOMMIT          => true,
@@ -371,7 +371,31 @@ class PdoOci8Statement implements \Iterator
     public function fetchAll($fetch_style = null, $fetch_argument = null, $ctor_args = array())
     {
         // TODO Implement properly (use all other fetch modes)
-        $this->statement->fetchAll($rows, 0, -1, OCI_FETCHSTATEMENT_BY_ROW | OCI_ASSOC);
+        switch ($fetch_style) {
+            case \PDO::FETCH_NUM:
+                $mode = OCI_NUM;
+                break;
+            case \PDO::FETCH_OBJ:
+            case \PDO::FETCH_INTO:
+            case \PDO::FETCH_CLASS:
+            case \PDO::FETCH_BOTH:
+            case \PDO::FETCH_COLUMN:
+            case \PDO::FETCH_BOUND:
+            case \PDO::FETCH_CLASSTYPE:
+            case \PDO::FETCH_FUNC:
+            case \PDO::FETCH_GROUP:
+            case \PDO::FETCH_KEY_PAIR:
+            case \PDO::FETCH_LAZY:
+            case \PDO::FETCH_NAMED:
+            case \PDO::FETCH_UNIQUE:
+                throw new PdoOci8Exception('Not implemented.');
+                //break;
+            case \PDO::FETCH_ASSOC:
+            default:
+                $mode = OCI_ASSOC;
+        }
+
+        $this->statement->fetchAll($rows, 0, -1, OCI_FETCHSTATEMENT_BY_ROW | $mode);
 
         return $rows;
     }

@@ -39,7 +39,39 @@ class PdoOci8StatementTest extends \PHPUnit_Framework_TestCase
         return $this->getConnection()->prepare($sqlText);
     }
 
-    public function testCanBindColumn()
+    /**
+     * @test
+     */
+    public function extendsPDOStatement()
+    {
+        $statement = $this->getNewStatement('SELECT DUMMY FROM SYS.DUAL');
+        $this->assertInstanceOf('\PDOStatement', $statement);
+    }
+
+    /**
+     * @test
+     */
+    public function sqlText()
+    {
+        $this->markTestIncomplete();
+        $query = 'SELECT DUMMY FROM SYS.DUAL';
+        $statement = $this->getNewStatement($query);
+        $this->assertEquals($query, $statement->queryString);
+    }
+
+    /**
+     * @test
+     */
+    public function implementsTraversableInterface()
+    {
+        $statement = $this->getNewStatement('SELECT DUMMY FROM SYS.DUAL');
+        $this->assertInstanceOf('\Traversable', $statement);
+    }
+
+    /**
+     * @test
+     */
+    public function bindColumn()
     {
         $statement = $this->getNewStatement('SELECT DUMMY FROM SYS.DUAL');
 
@@ -50,7 +82,10 @@ class PdoOci8StatementTest extends \PHPUnit_Framework_TestCase
         $this->assertTrue($isBound);
     }
 
-    public function testCannotBindColumn()
+    /**
+     * @test
+     */
+    public function cannotBindColumn()
     {
         $this->markTestIncomplete();
         $statement = $this->getNewStatement('SELECT DUMMY FROM SYS.DUAL');
@@ -62,7 +97,10 @@ class PdoOci8StatementTest extends \PHPUnit_Framework_TestCase
         $this->assertFalse($isBound);
     }
 
-    public function testCannotBindVariableToNamedParameter()
+    /**
+     * @test
+     */
+    public function bindParameterByName()
     {
         $statement = $this->getNewStatement('SELECT DUMMY FROM SYS.DUAL WHERE DUMMY LIKE :dummy');
         $value = 'X';
@@ -70,7 +108,10 @@ class PdoOci8StatementTest extends \PHPUnit_Framework_TestCase
         $this->assertTrue($isBound);
     }
 
-    public function testCannotBindVariableToIndexedParameter()
+    /**
+     * @test
+     */
+    public function bindParameterByIndex()
     {
         $statement = $this->getNewStatement('SELECT DUMMY FROM SYS.DUAL WHERE DUMMY LIKE ?');
         $value = 'X';
@@ -78,7 +119,10 @@ class PdoOci8StatementTest extends \PHPUnit_Framework_TestCase
         $this->assertFalse($isBound);
     }
 
-    public function testCannotBindVariable()
+    /**
+     * @test
+     */
+    public function cannotBindParameterByName()
     {
         $statement = $this->getNewStatement('SELECT DUMMY FROM SYS.DUAL WHERE DUMMY LIKE :dummy');
         $value = 'X';
@@ -86,7 +130,10 @@ class PdoOci8StatementTest extends \PHPUnit_Framework_TestCase
         $this->assertFalse($isBound);
     }
 
-    public function testCanBindValueToNamedParameter()
+    /**
+     * @test
+     */
+    public function bindValueToNamedParameter()
     {
         $statement = $this->getNewStatement('SELECT DUMMY FROM SYS.DUAL WHERE DUMMY LIKE :dummy');
 
@@ -94,28 +141,40 @@ class PdoOci8StatementTest extends \PHPUnit_Framework_TestCase
         $this->assertTrue($isBound);
     }
 
-    public function testCannotBindValueToIndexedParameter()
-    {
-        $statement = $this->getNewStatement('SELECT DUMMY FROM SYS.DUAL WHERE DUMMY LIKE ?');
-        $isBound = $statement->bindValue(1, 'X');
-        $this->assertFalse($isBound);
-    }
-
-    public function testCannotBindValue()
+    /**
+     * @test
+     */
+    public function cannotBindValueToNamedParameter()
     {
         $statement = $this->getNewStatement('SELECT DUMMY FROM SYS.DUAL WHERE DUMMY LIKE :dummy');
         $isBound = $statement->bindValue(':var_not_found', 'X');
         $this->assertFalse($isBound);
     }
 
-    public function testCanCloseCursor()
+    /**
+     * @test
+     */
+    public function cannotBindValueToIndexParameter()
+    {
+        $statement = $this->getNewStatement('SELECT DUMMY FROM SYS.DUAL WHERE DUMMY LIKE ?');
+        $isBound = $statement->bindValue(1, 'X');
+        $this->assertFalse($isBound);
+    }
+
+    /**
+     * @test
+     */
+    public function closeCursor()
     {
         $statement = $this->getNewStatement('SELECT DUMMY FROM SYS.DUAL');
         $isClosed = $statement->closeCursor();
         $this->assertTrue($isClosed);
     }
 
-    public function testGetColumnCount()
+    /**
+     * @test
+     */
+    public function getColumnCount()
     {
         $statement = $this->getNewStatement('SELECT DUMMY FROM SYS.DUAL');
         $columnCount = $statement->columnCount();
@@ -124,7 +183,10 @@ class PdoOci8StatementTest extends \PHPUnit_Framework_TestCase
         $this->assertGreaterThanOrEqual(0, $columnCount);
     }
 
-    public function testDebugDumpParamsUnorderedBingings()
+    /**
+     * @test
+     */
+    public function debugDumpParamsWithUnorderedBindings()
     {
         $sqlText = 'SELECT DUMMY FROM SYS.DUAL WHERE DUMMY LIKE :dummy1 OR DUMMY LIKE :dummy2';
         $statement = $this->getNewStatement($sqlText);
@@ -155,7 +217,10 @@ class PdoOci8StatementTest extends \PHPUnit_Framework_TestCase
         $this->assertEquals($expectedDebugString, $debugString);
     }
 
-    public function testDebugDumpParamsOrderedBingings()
+    /**
+     * @test
+     */
+    public function debugDumpParamsWithOrderedBindings()
     {
         $sqlText = 'SELECT DUMMY FROM SYS.DUAL WHERE DUMMY LIKE :dummy1 OR DUMMY LIKE :dummy2';
         $statement = $this->getNewStatement($sqlText);
@@ -186,14 +251,20 @@ class PdoOci8StatementTest extends \PHPUnit_Framework_TestCase
         $this->assertEquals($expectedDebugString, $debugString);
     }
 
-    public function testErrorCodeIsEmpty()
+    /**
+     * @test
+     */
+    public function errorCodeIsEmpty()
     {
         $statement = $this->getNewStatement('SELECT DUMMY FROM SYS.DUAL');
         $code = $statement->errorCode();
         $this->assertNull($code);
     }
 
-    public function testErrorCodeIsNotEmpty()
+    /**
+     * @test
+     */
+    public function errorCodeIsNotEmpty()
     {
         $statement = $this->getNewStatement('SELECT DUMMY FROM NOT_FOUND_TABLE');
         $statement->execute();
@@ -203,7 +274,10 @@ class PdoOci8StatementTest extends \PHPUnit_Framework_TestCase
         $this->assertEquals(5, strlen($code));
     }
 
-    public function testErrorInfo()
+    /**
+     * @test
+     */
+    public function errorInfoNoOnSuccess()
     {
         $statement = $this->getNewStatement('SELECT DUMMY FROM SYS.DUAL');
         $error = $statement->errorInfo();
@@ -213,7 +287,10 @@ class PdoOci8StatementTest extends \PHPUnit_Framework_TestCase
         $this->assertNull($error[2]);
     }
 
-    public function testErrorInfoOnError()
+    /**
+     * @test
+     */
+    public function errorInfoOnError()
     {
         $statement = $this->getNewStatement('SELECT DUMMY FROM NOT_FOUND_TABLE');
         $statement->execute();
@@ -224,21 +301,30 @@ class PdoOci8StatementTest extends \PHPUnit_Framework_TestCase
         $this->assertEquals('ORA-00942: table or view does not exist', $error[2]);
     }
 
-    public function testCanExecute()
+    /**
+     * @test
+     */
+    public function execute()
     {
         $statement = $this->getNewStatement('SELECT DUMMY FROM SYS.DUAL');
         $isSuccess = $statement->execute();
         $this->assertTrue($isSuccess);
     }
 
-    public function testCannotExecute()
+    /**
+     * @test
+     */
+    public function cannotExecute()
     {
         $statement = $this->getNewStatement('SELECT DUMMY FROM NOT_FOUND_TABLE');
         $isSuccess = $statement->execute();
         $this->assertFalse($isSuccess);
     }
 
-    public function testCanFetch()
+    /**
+     * @test
+     */
+    public function fetch()
     {
         $statement = $this->getNewStatement('SELECT DUMMY FROM SYS.DUAL');
         $statement->execute();
@@ -249,7 +335,10 @@ class PdoOci8StatementTest extends \PHPUnit_Framework_TestCase
         $this->assertArrayHasKey('DUMMY', $row);
     }
 
-    public function testCanFetchAssociative()
+    /**
+     * @test
+     */
+    public function fetchAssociativeArray()
     {
         $statement = $this->getNewStatement('SELECT DUMMY FROM SYS.DUAL');
         $statement->execute();
@@ -260,7 +349,10 @@ class PdoOci8StatementTest extends \PHPUnit_Framework_TestCase
         $this->assertArrayHasKey('DUMMY', $row);
     }
 
-    public function testCanFetchNumeric()
+    /**
+     * @test
+     */
+    public function fetchNumericArray()
     {
         $statement = $this->getNewStatement('SELECT DUMMY FROM SYS.DUAL');
         $statement->execute();
@@ -271,7 +363,10 @@ class PdoOci8StatementTest extends \PHPUnit_Framework_TestCase
         $this->assertArrayHasKey(0, $row);
     }
 
-    public function testCanFetchBound()
+    /**
+     * @test
+     */
+    public function fetchToBoundVariable()
     {
         $statement = $this->getNewStatement("SELECT 'X' DUMMY FROM SYS.DUAL");
         $statement->bindColumn('DUMMY', $dummy);
@@ -282,7 +377,10 @@ class PdoOci8StatementTest extends \PHPUnit_Framework_TestCase
         $this->assertEquals('X', $dummy);
     }
 
-    public function testCanFetchObject()
+    /**
+     * @test
+     */
+    public function fetchToObject()
     {
         $statement = $this->getNewStatement("SELECT 'X' DUMMY FROM SYS.DUAL");
         $statement->execute();
@@ -293,12 +391,82 @@ class PdoOci8StatementTest extends \PHPUnit_Framework_TestCase
         $this->assertEquals('X', $row->DUMMY);
     }
 
-    public function testCanFetchAll()
+    /**
+     * @test
+     */
+    public function fetchAll()
     {
-        $this->markTestIncomplete();
+        $statement = $this->getNewStatement("SELECT 'X' DUMMY FROM SYS.DUAL");
+        $statement->execute();
+        $rows = $statement->fetchAll();
+
+        $this->assertTrue(is_array($rows));
+        $this->assertArrayHasKey('0', $rows);
+        $this->assertArrayHasKey('DUMMY', $rows[0]);
     }
 
-    public function testCanFetchColumn()
+    /**
+     * @test
+     */
+    public function fetchAllAsAssociativeArray()
+    {
+        $statement = $this->getNewStatement("SELECT 'X' DUMMY FROM SYS.DUAL");
+        $statement->execute();
+        $rows = $statement->fetchAll(\PDO::FETCH_ASSOC);
+
+        $this->assertTrue(is_array($rows));
+        $this->assertArrayHasKey('0', $rows);
+        $this->assertArrayHasKey('DUMMY', $rows[0]);
+    }
+
+    /**
+     * @test
+     */
+    public function fetchAllAsNumericArray()
+    {
+        $statement = $this->getNewStatement("SELECT 'X' DUMMY FROM SYS.DUAL");
+        $statement->execute();
+        $rows = $statement->fetchAll(\PDO::FETCH_NUM);
+
+        $this->assertTrue(is_array($rows));
+        $this->assertArrayHasKey('0', $rows);
+        $this->assertArrayHasKey('0', $rows[0]);
+    }
+
+    /**
+     * @test
+     */
+    public function fetchAllAsObjects()
+    {
+        $this->markTestIncomplete();
+        $statement = $this->getNewStatement("SELECT 'X' DUMMY FROM SYS.DUAL");
+        $statement->execute();
+        $rows = $statement->fetchAll(\PDO::FETCH_OBJ);
+
+        $this->assertTrue(is_array($rows));
+        $this->assertArrayHasKey('0', $rows);
+        $this->assertArrayHasKey('DUMMY', $rows[0]);
+    }
+
+    /**
+     * @test
+     */
+    public function fetchAllAsCustomObjects()
+    {
+        $this->markTestIncomplete();
+        $statement = $this->getNewStatement("SELECT 'X' DUMMY FROM SYS.DUAL");
+        $statement->execute();
+        $rows = $statement->fetchAll(\PDO::FETCH_INTO);
+
+        $this->assertTrue(is_array($rows));
+        $this->assertArrayHasKey('0', $rows);
+        $this->assertArrayHasKey('DUMMY', $rows[0]);
+    }
+
+    /**
+     * @test
+     */
+    public function fetchColumn()
     {
         $statement = $this->getNewStatement("SELECT 'X' DUMMY FROM SYS.DUAL");
         $statement->execute();
@@ -307,7 +475,10 @@ class PdoOci8StatementTest extends \PHPUnit_Framework_TestCase
         $this->assertEquals('X', $dummy);
     }
 
-    public function testCannotFetchNonExistentColumn()
+    /**
+     * @test
+     */
+    public function cannotFetchNonExistentColumn()
     {
         $statement = $this->getNewStatement("SELECT 'X' DUMMY FROM SYS.DUAL");
         $statement->execute();
@@ -316,7 +487,10 @@ class PdoOci8StatementTest extends \PHPUnit_Framework_TestCase
         $this->assertFalse($dummy);
     }
 
-    public function testCannotFetchColumnOnEmptyRowset()
+    /**
+     * @test
+     */
+    public function cannotFetchColumnOnEmptyRowset()
     {
         $statement = $this->getNewStatement("SELECT 'X' DUMMY FROM SYS.DUAL");
         $statement->execute();
@@ -326,7 +500,24 @@ class PdoOci8StatementTest extends \PHPUnit_Framework_TestCase
         $this->assertFalse($dummy);
     }
 
-    public function testCanFetchCustomObject()
+    /**
+     * @test
+     */
+    public function fetchIntoStdClass()
+    {
+        $statement = $this->getNewStatement("SELECT 'X' DUMMY FROM SYS.DUAL");
+        $statement->execute();
+        $row = $statement->fetchObject();
+
+        $this->assertTrue($row instanceof \stdClass);
+        $this->assertTrue(property_exists($row, 'DUMMY'));
+        $this->assertEquals('X', $row->DUMMY);
+    }
+
+    /**
+     * @test
+     */
+    public function fetchIntoCustomObject()
     {
         $statement = $this->getNewStatement("SELECT 'X' DUMMY FROM SYS.DUAL");
         $statement->execute();
@@ -338,10 +529,13 @@ class PdoOci8StatementTest extends \PHPUnit_Framework_TestCase
         $this->assertEquals('X', $row->DUMMY);
     }
 
-    public function testGetColumnMetaString()
+    /**
+     * @test
+     */
+    public function getColumnMetaByColumnName()
     {
         $statement = $this->getNewStatement("SELECT 'X' DUMMY FROM SYS.DUAL WHERE DUMMY LIKE '%'");
-        $metadata = $statement->getColumnMeta(0);
+        $metadata = $statement->getColumnMeta('DUMMY');
 
         $this->assertTrue(is_array($metadata));
 
@@ -370,7 +564,10 @@ class PdoOci8StatementTest extends \PHPUnit_Framework_TestCase
         $this->assertEquals(\PDO::PARAM_STR, $metadata['pdo_type']);
     }
 
-    public function testGetColumnMetaNumber()
+    /**
+     * @test
+     */
+    public function getColumnMetaByColumnIndex()
     {
         $statement = $this->getNewStatement("SELECT DUMMY, CAST(9.9 AS FLOAT) AS D_FLOAT FROM SYS.DUAL");
         $metadata = $statement->getColumnMeta(1);
@@ -400,7 +597,10 @@ class PdoOci8StatementTest extends \PHPUnit_Framework_TestCase
         $this->assertEquals(\PDO::PARAM_INT, $metadata['pdo_type']);
     }
 
-    public function testGetColumnMetaNestedQuery()
+    /**
+     * @test
+     */
+    public function getColumnMetaFromNestedQuery()
     {
         $statement = $this->getNewStatement("SELECT 'X' DUMMY FROM (SELECT * FROM SYS.DUAL)");
         $metadata = $statement->getColumnMeta(0);
@@ -432,12 +632,41 @@ class PdoOci8StatementTest extends \PHPUnit_Framework_TestCase
         $this->assertEquals(\PDO::PARAM_STR, $metadata['pdo_type']);
     }
 
-    public function testGetColumnMetaNestedNonSelectQuery()
+    /**
+     * @test
+     */
+    public function getColumnMetaFromNestedNonSelectQuery()
     {
         $statement = $this->getNewStatement("INSERT (DUMMY) INTO SYS.DUAL VALUES ('X')");
         $metadata = $statement->getColumnMeta(0);
 
         $this->assertFalse($metadata);
+    }
+
+    /**
+     * @test
+     */
+    public function canIterateStatement()
+    {
+        $statement = $this->getNewStatement("SELECT 'X' DUMMY FROM SYS.DUAL");
+        while ($statement->valid()) {
+            $row = $statement->current();
+            $this->assertArrayHasKey('DUMMY', $row);
+            $statement->next();
+        }
+
+    }
+
+    /**
+     * @test
+     */
+    public function canTraverseStatement()
+    {
+        $statement = $this->getNewStatement("SELECT 'X' DUMMY FROM SYS.DUAL");
+        foreach ($statement as $row) {
+            $this->assertArrayHasKey('DUMMY', $row);
+        }
+
     }
 }
 

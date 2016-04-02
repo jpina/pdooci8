@@ -399,7 +399,8 @@ class PdoOci8 extends \PDO
         $exception = null;
         try {
             $options = $this->getOptions($driver_options);
-            return new PdoOci8Statement($this->getConnection(), $statement, $options);
+            $db = $this->getConnection();
+            return new PdoOci8Statement($db, $statement, $options);
         } catch (\Exception $ex) {
             $exception = new PdoOci8Exception($ex->getMessage(), $ex->getCode(), $ex);
         }

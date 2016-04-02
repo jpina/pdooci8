@@ -444,38 +444,6 @@ class PdoOci8Test extends \PHPUnit_Framework_TestCase
     /**
      * @test
      */
-    public function testQueryFetchDefaultAndTraverseWithIterator()
-    {
-        $db = $this->getConnection();
-        $statement = $db->query('SELECT DUMMY FROM PDOOCI8.pdooci8');
-        $this->assertInstanceOf('\Traversable', $statement);
-
-        while ($statement->valid()) {
-            $row = $statement->current();
-            $this->assertArrayHasKey('DUMMY', $row);
-            $statement->next();
-        }
-
-    }
-
-    /**
-     * @test
-     */
-    public function QueryFetchDefaultAndTraverseInForeach()
-    {
-        $db = $this->getConnection();
-        $statement = $db->query('SELECT DUMMY FROM PDOOCI8.pdooci8');
-        $this->assertInstanceOf('\Traversable', $statement);
-
-        foreach ($statement as $row) {
-            $this->assertArrayHasKey('DUMMY', $row);
-        }
-
-    }
-
-    /**
-     * @test
-     */
     public function testQueryFetchColumn()
     {
         $this->markTestIncomplete();
