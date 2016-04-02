@@ -104,6 +104,15 @@ class PdoOci8Test extends \PHPUnit_Framework_TestCase
 
     /**
      * @test
+     */
+    public function extendsPDO()
+    {
+        $db = $this->getConnection();
+        $this->assertInstanceOf('\PDO', $db);
+    }
+
+    /**
+     * @test
      * @expectedException \Jpina\PdoOci8\PdoOci8Exception
      * @expectedExceptionMessage oci_new_connect(): ORA-12541: TNS:no listener
      * @expectedExceptionCode 12541
