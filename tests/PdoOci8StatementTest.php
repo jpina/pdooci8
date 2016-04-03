@@ -19,7 +19,48 @@ class PdoOci8StatementTest extends \PHPUnit_Framework_TestCase
     {
         parent::setUpBeforeClass();
 
-        static::$connection = PdoOci8Test::getNewPdoConnection();
+        $options = array(
+            \PDO::ATTR_AUTOCOMMIT => true,
+        );
+        $db = PdoOci8Test::getNewPdoConnection($options);
+        static::$connection = $db;
+
+
+        try {
+            $sql = 'CREATE TABLE PDOOCI8.pdooci8 (dummy VARCHAR2(255))';
+            $statement = $db->prepare($sql);
+            $statement->execute();
+        } catch (\PDOException $ex) {
+            throw $ex;
+        }
+
+        try {
+            $sql = 'TRUNCATE TABLE PDOOCI8.pdooci8';
+            $statement = $db->prepare($sql);
+            $statement->execute();
+
+            $values = array('A', 'B', 'U', 'D');
+
+            $sql = "INSERT INTO PDOOCI8.pdooci8 (DUMMY) VALUES (:value)";
+            $statement = $db->prepare($sql);
+
+            foreach ($values as $value) {
+                $statement->bindParam(':value', $value);
+                $statement->execute();
+            }
+        } catch (\PDOException $ex) {
+            throw $ex;
+        }
+    }
+
+    public static function tearDownAfterClass()
+    {
+        parent::tearDownAfterClass();
+
+        $db = static::$connection;
+        $sql = 'DROP TABLE PDOOCI8.pdooci8';
+        $statement = $db->prepare($sql);
+        $statement->execute();
     }
 
     /**
@@ -314,11 +355,100 @@ class PdoOci8StatementTest extends \PHPUnit_Framework_TestCase
     /**
      * @test
      */
+    public function executeSelect()
+    {
+        $statement = $this->getNewStatement("SELECT 'X' DUMMY FROM SYS.DUAL");
+        $isSuccess = $statement->execute();
+        $this->assertTrue($isSuccess);
+        $this->assertEquals(0, $statement->rowCount());
+
+        $rows = $statement->fetchAll();
+        $this->assertTrue(is_array($rows));
+        $this->assertArrayHasKey('0', $rows);
+        $this->assertArrayHasKey('DUMMY', $rows[0]);
+        $this->assertEquals('X', $rows[0]['DUMMY']);
+    }
+
+    /**
+     * @test
+     */
+    public function executeSelectWithParameters()
+    {
+        $statement = $this->getNewStatement("SELECT 'X' DUMMY FROM SYS.DUAL WHERE dummy = :dummy");
+        $parameters = array(
+            'dummy' => 'X',
+        );
+        $isSuccess = $statement->execute($parameters);
+        $this->assertTrue($isSuccess);
+        $this->assertEquals(0, $statement->rowCount());
+
+        $rows = $statement->fetchAll();
+        $this->assertTrue(is_array($rows));
+        $this->assertArrayHasKey('0', $rows);
+        $this->assertArrayHasKey('DUMMY', $rows[0]);
+        $this->assertEquals('X', $rows[0]['DUMMY']);
+    }
+
+    /**
+     * @test
+     */
     public function cannotExecute()
     {
         $statement = $this->getNewStatement('SELECT DUMMY FROM NOT_FOUND_TABLE');
         $isSuccess = $statement->execute();
         $this->assertFalse($isSuccess);
+    }
+
+    /**
+     * @test
+     */
+    public function executeInsert()
+    {
+        $statement = $this->getNewStatement("INSERT INTO PDOOCI8.pdooci8 (DUMMY) VALUES ('I')");
+        $statement->execute();
+        $this->assertEquals(1, $statement->rowCount());
+
+        $statement = $this->getNewStatement("SELECT DUMMY FROM PDOOCI8.pdooci8 WHERE DUMMY = 'I'");
+        $statement->execute();
+        $row = $statement->fetch();
+
+        $this->assertTrue(is_array($row));
+        $this->assertArrayHasKey('DUMMY', $row);
+        $this->assertEquals('I', $row['DUMMY']);
+    }
+
+    /**
+     * @test
+     */
+    public function executeUpdate()
+    {
+        $statement = $this->getNewStatement("UPDATE PDOOCI8.pdooci8 SET DUMMY = 'S' WHERE DUMMY = 'U'");
+        $statement->execute();
+        $this->assertEquals(1, $statement->rowCount());
+
+        $statement = $this->getNewStatement("SELECT DUMMY FROM PDOOCI8.pdooci8 WHERE DUMMY = 'S'");
+        $statement->execute();
+        $row = $statement->fetch();
+
+        $this->assertTrue(is_array($row));
+        $this->assertArrayHasKey('DUMMY', $row);
+        $this->assertEquals('S', $row['DUMMY']);
+    }
+
+    /**
+     * @test
+     */
+    public function executeDelete()
+    {
+        $statement = $this->getNewStatement("DELETE FROM PDOOCI8.pdooci8 WHERE DUMMY = 'D'");
+        $statement->execute();
+        $this->assertEquals(1, $statement->rowCount());
+
+        $statement = $this->getNewStatement("SELECT DUMMY FROM PDOOCI8.pdooci8 WHERE DUMMY = 'D'");
+        $statement->execute();
+        $row = $statement->fetch();
+
+        $this->assertFalse($row);
     }
 
     /**
@@ -654,7 +784,6 @@ class PdoOci8StatementTest extends \PHPUnit_Framework_TestCase
             $this->assertArrayHasKey('DUMMY', $row);
             $statement->next();
         }
-
     }
 
     /**
@@ -666,7 +795,6 @@ class PdoOci8StatementTest extends \PHPUnit_Framework_TestCase
         foreach ($statement as $row) {
             $this->assertArrayHasKey('DUMMY', $row);
         }
-
     }
 }
 

@@ -37,13 +37,15 @@ class PdoOci8Test extends \PHPUnit_Framework_TestCase
             $statement = $db->prepare($sql, $options);
             $statement->execute();
 
-            $sql = "INSERT INTO PDOOCI8.pdooci8 (DUMMY) VALUES ('A')";
-            $statement = $db->prepare($sql, $options);
-            $a = $statement->execute();
+            $values = array('A', 'B');
 
-            $sql = "INSERT INTO PDOOCI8.pdooci8 (DUMMY) VALUES ('B')";
-            $statement = $db->prepare($sql, $options);
-            $statement->execute();
+            $sql = "INSERT INTO PDOOCI8.pdooci8 (DUMMY) VALUES (:value)";
+            $statement = $db->prepare($sql);
+
+            foreach ($values as $value) {
+                $statement->bindParam(':value', $value);
+                $statement->execute();
+            }
         } catch (\PDOException $ex) {
             throw $ex;
         }
