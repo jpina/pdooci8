@@ -31,6 +31,12 @@ class PdoOci8Statement extends \PDOStatement
     /** @var \ArrayIterator */
     private $iterator;
 
+    /** @var string|object */
+    private $fetchTarget = 'stdClass';
+
+    /** @var array */
+    private $fetchTargetConstructorArgs = array();
+
     public function __construct(Oci8ConnectionInterface $connection, $sqlText, $options = array())
     {
         if (!is_string($sqlText)) {
@@ -299,13 +305,13 @@ class PdoOci8Statement extends \PDOStatement
         $cursor_offset = 0
     ) {
         if ($fetch_style === null) {
-            $fetch_style === \PDO::ATTR_DEFAULT_FETCH_MODE;
+            $fetch_style = \PDO::ATTR_DEFAULT_FETCH_MODE;
         }
 
         try {
-//            if ($fetch_style === \PDO::ATTR_DEFAULT_FETCH_MODE) {
-//                $fetch_style = $this->getAttribute(\PDO::ATTR_DEFAULT_FETCH_MODE);
-//            }
+            if ($fetch_style === \PDO::ATTR_DEFAULT_FETCH_MODE) {
+                $fetch_style = $this->getAttribute(\PDO::ATTR_DEFAULT_FETCH_MODE);
+            }
 
             switch ($fetch_style) {
                 case \PDO::FETCH_ASSOC:
@@ -318,13 +324,19 @@ class PdoOci8Statement extends \PDOStatement
                 case \PDO::FETCH_CLASS:
                     // returns a new instance of the requested class, mapping the columns of the result
                     // set to named properties in the class
+                    $className = $this->getFetchTarget();
+                    $args      = $this->getFetchTargetConstructorArgs();
+                    return $this->fetchObject($className, $args);
                     break;
                 case \PDO::FETCH_CLASS | \PDO::FETCH_CLASSTYPE:
                     // the name of the class is determined from a value of the first column.
+                    return $this->fetchInto();
                     break;
                 case \PDO::FETCH_INTO:
                     // updates an existing instance of the requested class, mapping the columns of the
                     // result set to named properties in the class
+                    $instance = $this->getFetchTarget();
+                    return $this->fetchInto($instance);
                     break;
                 case \PDO::FETCH_LAZY:
                 case \PDO::FETCH_BOTH + \PDO::FETCH_OBJ:
@@ -342,7 +354,7 @@ class PdoOci8Statement extends \PDOStatement
                 case \PDO::FETCH_OBJ:
                     // returns an anonymous object with property names that correspond to the column names
                     // returned in your result set
-                    return $this->statement->fetchObject();
+                    return $this->fetchObject();
                     break;
                 case \PDO::FETCH_BOTH:
                 default:
@@ -429,21 +441,39 @@ class PdoOci8Statement extends \PDOStatement
      * @link http://php.net/manual/en/pdostatement.fetchobject.php
      * @return bool|object
      */
-    public function fetchObject($class_name = "stdClass", $ctor_args = array())
+    public function fetchObject($class_name = 'stdClass', $ctor_args = array())
+    {
+        $instance = $this->getFetchClassInstance($class_name, $ctor_args);
+
+        return $this->fetchInto($instance);
+    }
+
+    /**
+     * @param object|null $instance
+     * @return bool|object
+     */
+    protected function fetchInto($instance = null)
     {
         $row = $this->fetch(\PDO::FETCH_ASSOC);
         if ($row === false) {
             return false;
         }
 
-        $reflexionClass = new \ReflectionClass($class_name);
-        $classInstance = $reflexionClass->newInstanceArgs($ctor_args);
-
-        foreach ($row as $property => $value) {
-            $classInstance->{$property} = $value;
+        if ($instance === null) {
+            $className = reset($row);
+            $args = $this->getFetchTargetConstructorArgs();
+            $instance = $this->getFetchClassInstance($className, $args);
         }
 
-        return $classInstance;
+        foreach ($row as $property => $value) {
+            if ($instance instanceof \stdClass) {
+                $instance->{$property} = $value;
+            } elseif (property_exists($instance, $property)) {
+                $instance->{$property} = $value;
+            }
+        }
+
+        return $instance;
     }
 
     /**
@@ -506,122 +536,11 @@ class PdoOci8Statement extends \PDOStatement
     }
 
     /**
-     * @link http://php.net/manual/en/pdostatement.nextrowset.php
-     * @return bool
+     * @return Oci8ConnectionInterface
      */
-    public function nextRowset()
+    protected function getConnection()
     {
-        throw new \Exception('Not implemented');
-    }
-
-    /**
-     * @link http://php.net/manual/en/pdostatement.rowcount.php
-     * @return int
-     */
-    public function rowCount()
-    {
-        return $this->statement->getNumRows();
-    }
-
-
-    /**
-     * @param $attribute
-     * @param $value
-     *
-     * @link http://php.net/manual/en/pdostatement.setattribute.php
-     * @return bool
-     */
-    public function setAttribute($attribute, $value)
-    {
-        $readOnlyAttributes = array(
-            \PDO::ATTR_AUTOCOMMIT,
-        );
-
-        if (array_search($attribute, $readOnlyAttributes) !== false ||
-            !array_key_exists($attribute, $this->options)) {
-            return false;
-        }
-
-        $this->options[$attribute] = $value;
-
-        return true;
-    }
-
-    /**
-     * @param int $mode
-     * @param string|int|object $target
-     * @param array $ctor_args
-     *
-     * @link http://php.net/manual/en/pdostatement.setfetchmode.php
-     * @return bool
-     */
-    public function setFetchMode($mode, $target = null, $ctor_args = array())
-    {
-        $isSuccess = $this->setAttribute(\PDO::ATTR_DEFAULT_FETCH_MODE, $mode);
-        if ($isSuccess) {
-            $this->fetchTarget = $target;
-            $this->fetchTargetConstructorArgs = $ctor_args;
-        }
-
-        return $isSuccess;
-    }
-
-    /**
-     * @return string
-     */
-    protected function getTableName()
-    {
-        $statementType = $this->statement->getType();
-        if ($statementType !== 'SELECT') {
-            return '';
-        }
-
-        $sqlText = strtoupper($this->sqlText);
-        $idx     = strpos($sqlText, ' FROM ');
-        $table   = substr($this->sqlText, $idx + 6);
-        $table   = trim($table);
-
-        if (strpos($table, '(') !== false) {
-            return '';
-        }
-
-        $idxSpace = strpos($table, ' ');
-        if ($idxSpace !== false) {
-            $table = substr($table, 0, $idxSpace);
-        }
-
-        return $table;
-    }
-
-    /**
-     * @param string $data_type The data type name
-     *
-     * @return int
-     */
-    protected function getPDODataType($data_type)
-    {
-        //TODO Add all oracle data types
-        $pdoDataType = \PDO::PARAM_STR;
-        switch ($data_type) {
-            case 'NUMBER':
-                $pdoDataType = \PDO::PARAM_INT;
-                break;
-            case 'CHAR':
-            case 'VARCHAR2':
-            case 'NVARCHAR2':
-                $pdoDataType = \PDO::PARAM_STR;
-                break;
-            case 'LOB':
-            case 'CLOB':
-            case 'BLOB':
-            case 'NCLOB':
-                $pdoDataType = \PDO::PARAM_LOB;
-                break;
-            case 'BOOLEAN':
-                $pdoDataType = \PDO::PARAM_BOOL;
-        }
-
-        return $pdoDataType;
+        return $this->connection;
     }
 
     /**
@@ -662,11 +581,32 @@ class PdoOci8Statement extends \PDOStatement
     }
 
     /**
-     * @return Oci8ConnectionInterface
+     * @param string $className
+     * @param array $args
+     * @return object
      */
-    protected function getConnection()
+    protected function getFetchClassInstance($className = 'stdClass', $args = array())
     {
-        return $this->connection;
+        $reflexionClass = new \ReflectionClass($className);
+        $instance       = $reflexionClass->newInstanceArgs($args);
+
+        return $instance;
+    }
+
+    /**
+     * @return string|object
+     */
+    protected function getFetchTarget()
+    {
+        return $this->fetchTarget;
+    }
+
+    /**
+     * @return array
+     */
+    protected function getFetchTargetConstructorArgs()
+    {
+        return $this->fetchTargetConstructorArgs;
     }
 
     /**
@@ -687,6 +627,140 @@ class PdoOci8Statement extends \PDOStatement
         $this->iterator = new \ArrayIterator($rows);
 
         return $this->iterator;
+    }
+
+    /**
+     * @param string $data_type The data type name
+     *
+     * @return int
+     */
+    protected function getPDODataType($data_type)
+    {
+        //TODO Add all oracle data types
+        $pdoDataType = \PDO::PARAM_STR;
+        switch ($data_type) {
+            case 'NUMBER':
+                $pdoDataType = \PDO::PARAM_INT;
+                break;
+            case 'CHAR':
+            case 'VARCHAR2':
+            case 'NVARCHAR2':
+                $pdoDataType = \PDO::PARAM_STR;
+                break;
+            case 'LOB':
+            case 'CLOB':
+            case 'BLOB':
+            case 'NCLOB':
+                $pdoDataType = \PDO::PARAM_LOB;
+                break;
+            case 'BOOLEAN':
+                $pdoDataType = \PDO::PARAM_BOOL;
+        }
+
+        return $pdoDataType;
+    }
+
+    /**
+     * @return string
+     */
+    protected function getTableName()
+    {
+        $statementType = $this->statement->getType();
+        if ($statementType !== 'SELECT') {
+            return '';
+        }
+
+        $sqlText = strtoupper($this->sqlText);
+        $idx     = strpos($sqlText, ' FROM ');
+        $table   = substr($this->sqlText, $idx + 6);
+        $table   = trim($table);
+
+        if (strpos($table, '(') !== false) {
+            return '';
+        }
+
+        $idxSpace = strpos($table, ' ');
+        if ($idxSpace !== false) {
+            $table = substr($table, 0, $idxSpace);
+        }
+
+        return $table;
+    }
+
+    /**
+     * @link http://php.net/manual/en/pdostatement.nextrowset.php
+     * @return bool
+     */
+    public function nextRowset()
+    {
+        throw new \Exception('Not implemented');
+    }
+
+    /**
+     * @link http://php.net/manual/en/pdostatement.rowcount.php
+     * @return int
+     */
+    public function rowCount()
+    {
+        return $this->statement->getNumRows();
+    }
+
+    /**
+     * @param $attribute
+     * @param $value
+     *
+     * @link http://php.net/manual/en/pdostatement.setattribute.php
+     * @return bool
+     */
+    public function setAttribute($attribute, $value)
+    {
+        $readOnlyAttributes = array(
+            \PDO::ATTR_AUTOCOMMIT,
+        );
+
+        if (array_search($attribute, $readOnlyAttributes) !== false ||
+            !array_key_exists($attribute, $this->options)) {
+            return false;
+        }
+
+        $this->options[$attribute] = $value;
+
+        return true;
+    }
+
+    /**
+     * @param int $mode
+     * @param string|int|object $target
+     * @param array $ctor_args
+     *
+     * @link http://php.net/manual/en/pdostatement.setfetchmode.php
+     * @return bool
+     */
+    public function setFetchMode($mode, $target = null, $ctor_args = array())
+    {
+        $isSuccess = $this->setAttribute(\PDO::ATTR_DEFAULT_FETCH_MODE, $mode);
+        if ($isSuccess) {
+            $this->setFetchTarget($target);
+            $this->setFetchTargetConstructorArgs($ctor_args);
+        }
+
+        return $isSuccess;
+    }
+
+    /**
+     * @param string|object $target
+     */
+    protected function setFetchTarget($target)
+    {
+        $this->fetchTarget = $target;
+    }
+
+    /**
+     * @param array $args
+     */
+    protected function setFetchTargetConstructorArgs($args)
+    {
+        $this->fetchTargetConstructorArgs = $args;
     }
 
     /**

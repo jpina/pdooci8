@@ -500,6 +500,75 @@ class PdoOci8StatementTest extends \PHPUnit_Framework_TestCase
     /**
      * @test
      */
+    public function fetchBound()
+    {
+        $statement = $this->getNewStatement("SELECT 'X' DUMMY FROM SYS.DUAL");
+        $statement->bindColumn('DUMMY', $dummy);
+        $statement->execute();
+        $row = $statement->fetch(\PDO::FETCH_BOUND);
+
+        $this->assertTrue($row);
+        $this->assertEquals('X', $dummy);
+    }
+
+    /**
+     * @test
+     */
+    public function fetchClass()
+    {
+        $this->markTestIncomplete('Make fetch lower case');
+        $statement = $this->getNewStatement("SELECT 'X' DUMMY FROM SYS.DUAL");
+        $className = get_class(new Dummy());
+        $statement->setFetchMode(\PDO::FETCH_CLASS, $className);
+        $statement->setAttribute(\PDO::ATTR_CASE, \PDO::CASE_LOWER);
+        $statement->execute();
+        $instance = $statement->fetch();
+
+        $this->assertInstanceOf($className, $instance);
+        $this->assertObjectHasAttribute('dummy', $instance);
+        $this->assertEquals('X', $instance->dummy);
+    }
+
+    /**
+     * @test
+     */
+    public function fetchClassType()
+    {
+        $this->markTestIncomplete('Make fetch lower case');
+        $query = "SELECT CONCAT('Jpina\\Test\\PdoOci8\\', 'Dummy') CLASSNAME, 'X' DUMMY FROM SYS.DUAL";
+        $statement = $this->getNewStatement($query);
+        $className = get_class(new Dummy());
+        $statement->setFetchMode(\PDO::FETCH_CLASS | \PDO::FETCH_CLASSTYPE);
+        $statement->setAttribute(\PDO::ATTR_CASE, \PDO::CASE_LOWER);
+        $statement->execute();
+        $instance = $statement->fetch();
+
+        $this->assertInstanceOf($className, $instance);
+        $this->assertObjectHasAttribute('dummy', $instance);
+        $this->assertEquals('X', $instance->dummy);
+    }
+
+    /**
+     * @test
+     */
+    public function fetchInto()
+    {
+        $this->markTestIncomplete('Make fetch lower case');
+        $statement = $this->getNewStatement("SELECT 'X' DUMMY FROM SYS.DUAL");
+        $originalInstance = new Dummy();
+        $statement->setFetchMode(\PDO::FETCH_INTO, $originalInstance);
+        $statement->setAttribute(\PDO::ATTR_CASE, \PDO::CASE_LOWER);
+        $statement->execute();
+        $instance = $statement->fetch();
+
+        $this->assertInstanceOf(get_class($originalInstance), $instance);
+        $this->assertObjectHasAttribute('dummy', $instance);
+        $this->assertEquals('X', $instance->dummy);
+    }
+
+    /**
+     * @test
+     */
     public function fetchNumericArray()
     {
         $statement = $this->getNewStatement('SELECT DUMMY FROM SYS.DUAL');
@@ -514,29 +583,18 @@ class PdoOci8StatementTest extends \PHPUnit_Framework_TestCase
     /**
      * @test
      */
-    public function fetchToBoundVariable()
+    public function fetchObject()
     {
+        $this->markTestIncomplete('Make fetch lower case');
         $statement = $this->getNewStatement("SELECT 'X' DUMMY FROM SYS.DUAL");
-        $statement->bindColumn('DUMMY', $dummy);
+        $statement->setFetchMode(\PDO::FETCH_OBJ);
+        $statement->setAttribute(\PDO::ATTR_CASE, \PDO::CASE_LOWER);
         $statement->execute();
-        $isSuccess = $statement->fetch(\PDO::FETCH_BOUND);
+        $instance = $statement->fetch();
 
-        $this->assertTrue($isSuccess);
-        $this->assertEquals('X', $dummy);
-    }
-
-    /**
-     * @test
-     */
-    public function fetchToObject()
-    {
-        $statement = $this->getNewStatement("SELECT 'X' DUMMY FROM SYS.DUAL");
-        $statement->execute();
-        $row = $statement->fetch(\PDO::FETCH_OBJ);
-
-        $this->assertTrue($row instanceof \stdClass);
-        $this->assertTrue(property_exists($row, 'DUMMY'));
-        $this->assertEquals('X', $row->DUMMY);
+        $this->assertInstanceOf('\stdClass', $instance);
+        $this->assertObjectHasAttribute('dummy', $instance);
+        $this->assertEquals('X', $instance->dummy);
     }
 
     /**
@@ -651,30 +709,32 @@ class PdoOci8StatementTest extends \PHPUnit_Framework_TestCase
     /**
      * @test
      */
-    public function fetchIntoStdClass()
+    public function fetchObject2()
     {
+        $this->markTestIncomplete('Make fetch lowe case');
         $statement = $this->getNewStatement("SELECT 'X' DUMMY FROM SYS.DUAL");
         $statement->execute();
         $row = $statement->fetchObject();
 
-        $this->assertTrue($row instanceof \stdClass);
-        $this->assertTrue(property_exists($row, 'DUMMY'));
-        $this->assertEquals('X', $row->DUMMY);
+        $this->assertInstanceOf('\\stdClass', $row);
+        $this->assertTrue(property_exists($row, 'dummy'));
+        $this->assertEquals('X', $row->dummy);
     }
 
     /**
      * @test
      */
-    public function fetchIntoCustomObject()
+    public function fetchCustomObject()
     {
+        $this->markTestIncomplete('Make fetch lowe case');
         $statement = $this->getNewStatement("SELECT 'X' DUMMY FROM SYS.DUAL");
         $statement->execute();
         $className = get_class(new Dummy());
         $row = $statement->fetchObject($className, array(''));
 
-        $this->assertTrue($row instanceof Dummy);
-        $this->assertTrue(property_exists($row, 'DUMMY'));
-        $this->assertEquals('X', $row->DUMMY);
+        $this->assertInstanceOf($className, $row);
+        $this->assertTrue(property_exists($row, 'dummy'));
+        $this->assertEquals('X', $row->dummy);
     }
 
     /**
