@@ -892,6 +892,22 @@ class PdoOci8StatementTest extends \PHPUnit_Framework_TestCase
         $hasMoreRowsets = $statement->nextRowset();
         $this->assertFalse($hasMoreRowsets);
     }
+
+    /**
+     * @test
+     */
+    public function fetchStringLob()
+    {
+        $this->markTestIncomplete();
+        $statement = $this->getNewStatement('SELECT name, picture FROM animal_pictures');
+        $statement->bindColumn(1, $nickname, \PDO::PARAM_STR, 32);
+        $statement->bindColumn(2, $picture, \PDO::PARAM_LOB);
+        $statement->execute();
+        $statement->fetch(\PDO::FETCH_BOUND);
+
+        $this->assertTrue(is_string($nickname));
+        $this->assertInstanceOf(\OCI-Lob, $picture);
+    }
 }
 
 class Dummy
