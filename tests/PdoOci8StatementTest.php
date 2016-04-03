@@ -482,6 +482,24 @@ class PdoOci8StatementTest extends \PHPUnit_Framework_TestCase
     /**
      * @test
      */
+    public function fetchBoth()
+    {
+        $statement = $this->getNewStatement("SELECT 'X' DUMMY FROM SYS.DUAL");
+        $statement->execute();
+        $row = $statement->fetch(\PDO::FETCH_BOTH);
+
+        $this->assertTrue(is_array($row));
+
+        $this->assertArrayHasKey('0', $row);
+        $this->assertEquals('X', $row[0]);
+
+        $this->assertArrayHasKey('DUMMY', $row);
+        $this->assertEquals('X', $row['DUMMY']);
+    }
+
+    /**
+     * @test
+     */
     public function fetchNumericArray()
     {
         $statement = $this->getNewStatement('SELECT DUMMY FROM SYS.DUAL');
