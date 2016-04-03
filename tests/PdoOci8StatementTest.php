@@ -796,6 +796,24 @@ class PdoOci8StatementTest extends \PHPUnit_Framework_TestCase
             $this->assertArrayHasKey('DUMMY', $row);
         }
     }
+
+    /**
+     * @test
+     */
+    public function nextRowset()
+    {
+        $this->markTestIncomplete();
+        $statement = $this->getNewStatement('CALL multiple_rowsets()');
+        $statement->execute();
+
+        $rowset = $statement->fetchAll(\PDO::FETCH_NUM);
+        $hasMoreRowsets = $statement->nextRowset();
+        $this->assertTrue($hasMoreRowsets);
+
+        $rowset = $statement->fetchAll(\PDO::FETCH_NUM);
+        $hasMoreRowsets = $statement->nextRowset();
+        $this->assertFalse($hasMoreRowsets);
+    }
 }
 
 class Dummy

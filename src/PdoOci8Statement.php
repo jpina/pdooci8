@@ -511,7 +511,7 @@ class PdoOci8Statement extends \PDOStatement
      */
     public function nextRowset()
     {
-        // TODO Implement
+        throw new \Exception('Not implemented');
     }
 
     /**
